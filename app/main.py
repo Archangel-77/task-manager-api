@@ -1,7 +1,10 @@
 import asyncio
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Literal
 
@@ -18,7 +21,10 @@ from .logger import configure_logging
 
 configure_logging()
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 @app.get("/")
@@ -27,7 +33,8 @@ def root():
 
 
 @app.post("/auth/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
-async def register_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def register_user(request: Request, user: schemas.UserCreate, db: AsyncSession = Depends(get_db)):
     existing = await get_user_by_username(db, user.username)
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
@@ -40,7 +47,9 @@ async def register_user(user: schemas.UserCreate, db: AsyncSession = Depends(get
 
 
 @app.post("/auth/token", response_model=schemas.Token)
+@limiter.limit("10/minute")
 async def login_for_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
