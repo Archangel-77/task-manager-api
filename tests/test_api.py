@@ -31,7 +31,7 @@ def test_task_crud_flow():
             json={"title": "Write tests", "description": "Cover auth + CRUD"},
             headers=headers,
         )
-        assert create_response.status_code == 200
+        assert create_response.status_code == 201
         created_task = create_response.json()
         task_id = created_task["id"]
 
