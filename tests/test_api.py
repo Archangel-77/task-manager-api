@@ -98,4 +98,4 @@ def test_filter_and_sort_tasks():
         assert all(task["completed"] is True for task in completed_only.json())
 
         invalid_sort = client.get("/tasks/?sort=bad_field", headers=headers)
-        assert invalid_sort.status_code == 400
+        assert invalid_sort.status_code == 422

@@ -1,7 +1,7 @@
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Literal
 
 from . import crud, models, schemas
 from .auth import (
@@ -67,11 +67,11 @@ async def read_tasks(
     skip: int = 0,
     limit: int = 100,
     completed: bool | None = None,
-    sort: str = "-created_at",
+    sort: Literal["created_at", "-created_at", "title", "-title"] = "-created_at",
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    tasks = await crud.get_tasks(
+    return await crud.get_tasks(
         db,
         owner_id=current_user.id,
         skip=skip,
@@ -79,9 +79,6 @@ async def read_tasks(
         completed=completed,
         sort=sort,
     )
-    if tasks is None:
-        raise HTTPException(status_code=400, detail="Invalid sort value. Use: created_at, -created_at, title, -title")
-    return tasks
 
 
 @app.get("/tasks/{task_id}", response_model=schemas.TaskResponse)

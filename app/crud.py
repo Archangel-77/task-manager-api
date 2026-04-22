@@ -43,10 +43,7 @@ async def get_tasks(
     completed: bool | None = None,
     sort: str = "-created_at",
 ):
-    sort_key = sort[1:] if sort.startswith("-") else sort
-    if sort_key not in SORT_COLUMNS:
-        return None
-
+    sort_key = sort.lstrip("-")
     order_col = SORT_COLUMNS[sort_key]
     order_clause = order_col.desc() if sort.startswith("-") else order_col.asc()
 
