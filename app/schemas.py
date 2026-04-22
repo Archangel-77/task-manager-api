@@ -1,11 +1,14 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, StringConstraints
+from typing import Annotated, Optional
+
+Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
 
 
 class TaskBase(BaseModel):
-    title: str
-    description: Optional[str] = None
+    title: Title
+    description: Optional[Description] = None
 
 
 class TaskCreate(TaskBase):
@@ -13,8 +16,8 @@ class TaskCreate(TaskBase):
 
 
 class TaskUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: Optional[Title] = None
+    description: Optional[Description] = None
     completed: Optional[bool] = None
 
 
@@ -28,8 +31,8 @@ class TaskResponse(TaskBase):
 
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
+    username: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=50)]
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
 
 
 class UserResponse(BaseModel):
