@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models, schemas
@@ -54,6 +54,14 @@ async def get_tasks(
 
     result = await db.execute(query)
     return result.scalars().all()
+
+
+async def count_tasks(db: AsyncSession, owner_id: int, completed: bool | None = None) -> int:
+    query = select(func.count()).select_from(models.Task).where(models.Task.owner_id == owner_id)
+    if completed is not None:
+        query = query.where(models.Task.completed == completed)
+    result = await db.execute(query)
+    return result.scalar_one()
 
 
 async def update_task(db: AsyncSession, task_id: int, task_update: schemas.TaskUpdate, owner_id: int):

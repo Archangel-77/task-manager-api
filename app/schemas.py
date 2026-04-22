@@ -36,6 +36,11 @@ class UserCreate(BaseModel):
     password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
 
 
+class TaskListResponse(BaseModel):
+    items: list[TaskResponse]
+    total: int
+
+
 class UserResponse(BaseModel):
     id: int
     username: str

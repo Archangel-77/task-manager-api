@@ -1,7 +1,9 @@
+import asyncio
+
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Literal
+from typing import Literal
 
 from . import crud, models, schemas
 from .auth import (
@@ -62,7 +64,7 @@ async def create_task(
     return await crud.create_task(db, task, owner_id=current_user.id)
 
 
-@app.get("/tasks/", response_model=List[schemas.TaskResponse])
+@app.get("/tasks/", response_model=schemas.TaskListResponse)
 async def read_tasks(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=200),
@@ -71,14 +73,11 @@ async def read_tasks(
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return await crud.get_tasks(
-        db,
-        owner_id=current_user.id,
-        skip=skip,
-        limit=limit,
-        completed=completed,
-        sort=sort,
+    items, total = await asyncio.gather(
+        crud.get_tasks(db, owner_id=current_user.id, skip=skip, limit=limit, completed=completed, sort=sort),
+        crud.count_tasks(db, owner_id=current_user.id, completed=completed),
     )
+    return {"items": items, "total": total}
 
 
 @app.get("/tasks/{task_id}", response_model=schemas.TaskResponse)

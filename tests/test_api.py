@@ -37,7 +37,9 @@ def test_task_crud_flow():
 
         list_response = client.get("/tasks/", headers=headers)
         assert list_response.status_code == 200
-        assert any(task["id"] == task_id for task in list_response.json())
+        list_data = list_response.json()
+        assert "items" in list_data and "total" in list_data
+        assert any(task["id"] == task_id for task in list_data["items"])
 
         update_response = client.put(
             f"/tasks/{task_id}",
@@ -82,10 +84,11 @@ def test_filter_and_sort_tasks():
 
         all_tasks = client.get("/tasks/?sort=title", headers=headers)
         assert all_tasks.status_code == 200
-        titles = [task["title"] for task in all_tasks.json()]
+        items = all_tasks.json()["items"]
+        titles = [task["title"] for task in items]
         assert titles == sorted(titles)
 
-        first_task_id = all_tasks.json()[0]["id"]
+        first_task_id = items[0]["id"]
         complete_response = client.put(
             f"/tasks/{first_task_id}",
             json={"completed": True},
@@ -95,7 +98,8 @@ def test_filter_and_sort_tasks():
 
         completed_only = client.get("/tasks/?completed=true", headers=headers)
         assert completed_only.status_code == 200
-        assert all(task["completed"] is True for task in completed_only.json())
+        completed_items = completed_only.json()["items"]
+        assert all(task["completed"] is True for task in completed_items)
 
         invalid_sort = client.get("/tasks/?sort=bad_field", headers=headers)
         assert invalid_sort.status_code == 422
