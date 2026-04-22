@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import logging
 import os
 
 from fastapi import Depends, HTTPException, status
@@ -11,9 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .database import get_db
 from .models import User
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
+_INSECURE_DEFAULT = "change-me-in-production"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", _INSECURE_DEFAULT)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+if SECRET_KEY == _INSECURE_DEFAULT and os.getenv("TESTING") != "1":
+    logging.getLogger(__name__).critical(
+        "JWT_SECRET_KEY is not set — using insecure default. "
+        "Set the JWT_SECRET_KEY environment variable before running in production."
+    )
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")

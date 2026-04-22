@@ -8,6 +8,7 @@ import pytest
 TEST_DB_PATH = Path(f"./test_tasks_{uuid4().hex}.db")
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{TEST_DB_PATH.as_posix()}"
 os.environ["JWT_SECRET_KEY"] = "test-secret"
+os.environ["TESTING"] = "1"
 
 
 @pytest.fixture(scope="session", autouse=True)
