@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Literal
@@ -64,8 +64,8 @@ async def create_task(
 
 @app.get("/tasks/", response_model=List[schemas.TaskResponse])
 async def read_tasks(
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=200),
     completed: bool | None = None,
     sort: Literal["created_at", "-created_at", "title", "-title"] = "-created_at",
     db: AsyncSession = Depends(get_db),
