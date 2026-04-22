@@ -1,14 +1,6 @@
-import os
-from pathlib import Path
-from uuid import uuid4
-
 from fastapi.testclient import TestClient
 
-TEST_DB_PATH = Path(f"./test_tasks_{uuid4().hex}.db")
-os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{TEST_DB_PATH.as_posix()}"
-os.environ["JWT_SECRET_KEY"] = "test-secret"
-
-from app.main import app  # noqa: E402
+from app.main import app
 
 
 def _auth_headers(client: TestClient, username: str, password: str):

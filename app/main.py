@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,19 +11,12 @@ from .auth import (
     get_user_by_username,
     hash_password,
 )
-from .database import Base, engine, get_db
+from .database import get_db
 from .logger import configure_logging
 
 configure_logging()
 
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 
 @app.get("/")
