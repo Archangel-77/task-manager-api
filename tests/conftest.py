@@ -1,30 +1,23 @@
-import asyncio
-import os
-from pathlib import Path
-from uuid import uuid4
-
 import pytest
-
-TEST_DB_PATH = Path(f"./test_tasks_{uuid4().hex}.db")
-os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{TEST_DB_PATH.as_posix()}"
-os.environ["JWT_SECRET_KEY"] = "test-secret"
-os.environ["TESTING"] = "1"
-
+from app.database import get_db, Base, engine
 
 @pytest.fixture(scope="session", autouse=True)
-def create_tables():
-    from app.database import Base, engine
+def create_test_db():
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
-    async def _setup():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+@pytest.fixture
+def db_session():
+    connection = engine.connect()
+    transaction = connection.begin_nested()
+    session = get_db()
+    yield session
+    transaction.rollback()
+    connection.close()
 
-    asyncio.run(_setup())
-    yield
-
-    async def _teardown():
-        await engine.dispose()
-
-    asyncio.run(_teardown())
-    if TEST_DB_PATH.exists():
-        TEST_DB_PATH.unlink()
+@pytest.fixture
+def client(db_session):
+    from app.main import app
+    with TestClient(app) as client:
+        client.app.dependency_overrides[get_db] = lambda: db_session
+        yield client
