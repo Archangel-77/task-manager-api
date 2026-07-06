@@ -1,25 +1,23 @@
 # database.py
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+import os
 from typing import AsyncGenerator
 
 Base = declarative_base()
 
-# 1. Create async engine
 engine = create_async_engine(
-    "sqlite+aiosqlite:///./test.db",  # or postgresql+asyncpg, mysql+aiomysql
-    echo=True,  # Set to False in production
+    "sqlite+aiosqlite:///./test.db",
+    echo=True,
 )
 
-# 2. Create async session factory
 SessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
-    expire_on_commit=False,  # ← Important!
-    autoflush=False,         # ← Important!
+    expire_on_commit=False,
+    autoflush=False,
 )
 
-# 3. Dependency for FastAPI
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
         try:
@@ -28,14 +26,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await session.close()
 
-# 4. Initialize tables on startup
 async def init_db():
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
-# 5. Cleanup on shutdown
 async def close_db():
     await engine.dispose()
+
+# Import models to register metadata
+import app.models
