@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import logging
 import os
 
@@ -12,49 +12,42 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .database import get_db
 from .models import User
 
-_INSECURE_DEFAULT = "change-me-in-production"
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", _INSECURE_DEFAULT)
+# Ensure JWT_SECRET_KEY is set
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("JWT_SECRET_KEY environment variable must be set before running the application.")
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-
-if SECRET_KEY == _INSECURE_DEFAULT and os.getenv("TESTING") != "1":
-    logging.getLogger(__name__).critical(
-        "JWT_SECRET_KEY is not set — using insecure default. "
-        "Set the JWT_SECRET_KEY environment variable before running in production."
-    )
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
+from .main import app  # Import the app instance from main.py
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
+def verify_password(plain_password: str, user: User) -> bool:
+    return pwd_context.verify(plain_password, user.hashed_password)
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
-
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 async def get_user_by_username(db: AsyncSession, username: str) -> User | None:
     result = await db.execute(select(User).where(User.username == username))
-    return result.scalar_one_or_none()
-
+    user = result.scalar_one_or_none()
+    return user
 
 async def authenticate_user(db: AsyncSession, username: str, password: str) -> User | None:
     user = await get_user_by_username(db, username)
-    if not user or not verify_password(password, user.hashed_password):
+    if not user or not verify_password(password, user):
         return None
     return user
-
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -68,7 +61,7 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username = payload.get("sub")
+        username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
     except JWTError:
@@ -78,3 +71,19 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+from pydantic import BaseModel
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+@app.post("/auth/register")
+async def register_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    # Registration logic here
+    hashed_password = hash_password(user.password)
+    new_user = User(username=user.username, hashed_password=hashed_password)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
+    return {"message": "User registered successfully"}
