@@ -1,23 +1,29 @@
 import pytest
-from app.database import get_db, Base, engine
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..app.database import engine, Base
+from app.main import app
 
 @pytest.fixture(scope="session", autouse=True)
-def create_test_db():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+async def create_test_db():
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.drop_all)
+        await connection.run_sync(Base.metadata.create_all)
 
 @pytest.fixture
-def db_session():
+def db_session() -> AsyncSession:
     connection = engine.connect()
     transaction = connection.begin_nested()
-    session = get_db()
+    session: AsyncSession = get_db()
     yield session
     transaction.rollback()
     connection.close()
 
 @pytest.fixture
 def client(db_session):
-    from app.main import app
-    with TestClient(app) as client:
-        client.app.dependency_overrides[get_db] = lambda: db_session
-        yield client
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    with TestClient(app) as c:
+        yield c
+
+    app.dependency_overrides.clear()
